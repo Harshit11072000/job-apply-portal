@@ -1,8 +1,7 @@
 """
 Instahyre platform adapter.
-Credentials: INSTAHYRE_EMAIL / INSTAHYRE_PASSWORD env vars.
-Instahyre shows curated "Interested" opportunities — we click Interested
-on matching cards rather than filling lengthy forms.
+Login: uses Google SSO via the real Chrome profile (already signed into Google).
+No password needed — Chrome auto-completes the Google OAuth flow silently.
 """
 
 import hashlib
@@ -18,31 +17,66 @@ log = logging.getLogger(__name__)
 
 BASE_URL = "https://www.instahyre.com"
 
+# Path to your real Chrome profile — already signed into Google
+CHROME_USER_DATA = os.path.expanduser("~/Library/Application Support/Google/Chrome")
+CHROME_PROFILE = "Default"
+
 
 class InstahyrePlatform(BasePlatform):
     name = "instahyre"
 
+    # Tell the scheduler to launch with the real Chrome profile
+    use_chrome_profile = True
+
     def login(self, page) -> None:
-        email = os.environ.get("INSTAHYRE_EMAIL", self.profile["email"])
-        password = os.environ.get("INSTAHYRE_PASSWORD", "")
-        if not password:
-            raise RuntimeError("Set INSTAHYRE_PASSWORD env var.")
-
+        """
+        Instahyre uses Google SSO. Since we launch with the real Chrome profile
+        (already signed into Google), we just click 'Sign in with Google' and
+        Chrome completes the OAuth silently — no password required.
+        """
         page.goto(f"{BASE_URL}/login/", wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(1500)
+        page.wait_for_timeout(2000)
 
-        page.fill('input[name="email"], input[type="email"]', email, timeout=10000)
-        page.fill('input[name="password"], input[type="password"]', password, timeout=10000)
-        page.click('button[type="submit"], input[type="submit"]', timeout=10000)
+        # If already logged in (session persists in Chrome profile), skip
+        if "/login" not in page.url:
+            log.info("Instahyre: already logged in via Chrome session.")
+            return
 
+        # Click Google SSO button
         try:
-            page.wait_for_url(lambda u: "/dashboard" in u or "/opportunities" in u or "/jobs" in u, timeout=20000)
+            google_btn = page.wait_for_selector(
+                'a[href*="google"], button:has-text("Google"), '
+                '[class*="google"], a:has-text("Sign in with Google")',
+                timeout=8000,
+            )
+            google_btn.click()
         except PlaywrightTimeoutError:
-            pass
+            raise RuntimeError("Instahyre: could not find Google sign-in button.")
 
-        if "/login" in page.url:
-            raise RuntimeError(f"Instahyre login failed — URL: {page.url}")
-        log.info("Instahyre: logged in.")
+        # Google OAuth — Chrome auto-selects the account already signed in
+        # Wait for redirect back to Instahyre
+        try:
+            page.wait_for_url(
+                lambda u: "instahyre.com" in u and "/login" not in u,
+                timeout=30000,
+            )
+        except PlaywrightTimeoutError:
+            # May need account selection — pick the right email
+            email = self.profile["email"]
+            try:
+                account_btn = page.wait_for_selector(
+                    f'[data-email="{email}"], div:has-text("{email}")',
+                    timeout=8000,
+                )
+                account_btn.click()
+                page.wait_for_url(
+                    lambda u: "instahyre.com" in u and "/login" not in u,
+                    timeout=20000,
+                )
+            except PlaywrightTimeoutError:
+                raise RuntimeError(f"Instahyre: Google OAuth did not complete. URL: {page.url}")
+
+        log.info(f"Instahyre: logged in via Google SSO. URL: {page.url}")
 
     def search_jobs(self, page) -> list[Job]:
         """Load the opportunities/matches page."""

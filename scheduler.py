@@ -53,36 +53,58 @@ def run_platform(platform_cls, dry_run: bool = False, limit: int = 0):
     log.info(f"[{platform.name}] starting — max {max_applies} applies.")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=False,
-            slow_mo=60,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
-        context = browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            viewport={"width": 1280, "height": 800},
-        )
-        context.add_init_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
-        page = context.new_page()
+        # Platforms that use Google SSO launch with the real Chrome profile
+        # so Google OAuth completes silently without any password.
+        use_chrome_profile = getattr(platform_cls, "use_chrome_profile", False)
+
+        if use_chrome_profile:
+            chrome_user_data = os.path.expanduser("~/Library/Application Support/Google/Chrome")
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=chrome_user_data,
+                channel="chrome",           # use real Chrome, not Chromium
+                headless=False,
+                slow_mo=60,
+                args=["--disable-blink-features=AutomationControlled"],
+                viewport={"width": 1280, "height": 800},
+            )
+            browser = None
+            page = context.new_page()
+        else:
+            browser = p.chromium.launch(
+                headless=False,
+                slow_mo=60,
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+            context = browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 800},
+            )
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
+            page = context.new_page()
+
+        def close_all():
+            context.close()
+            if browser:
+                browser.close()
 
         try:
             platform.login(page)
         except Exception as e:
             log.error(f"[{platform.name}] Login failed: {e}")
-            browser.close()
+            close_all()
             return
 
         try:
             jobs = platform.search_jobs(page)
         except Exception as e:
             log.error(f"[{platform.name}] Search failed: {e}")
-            browser.close()
+            close_all()
             return
 
         log.info(f"[{platform.name}] Found {len(jobs)} jobs.")
@@ -125,7 +147,9 @@ def run_platform(platform_cls, dry_run: bool = False, limit: int = 0):
                 )
                 time.sleep(2)  # polite delay between applications
 
-        browser.close()
+        context.close()
+        if browser:
+            browser.close()
 
     log.info(f"[{platform.name}] Done. Applied {applied_this_run} this run.")
 
