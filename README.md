@@ -34,7 +34,7 @@ An automated job application system that searches and applies to matching roles 
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/JyotiSingh07/job-apply-portal
+git clone https://github.com/Harshit11072000/job-apply-portal
 cd job-apply-portal
 pip install -r requirements.txt
 playwright install chromium
