@@ -1,0 +1,56 @@
+# Platform enable/disable and per-platform settings
+# Credentials are read from .env — do NOT put passwords here
+
+platforms:
+  naukri:
+    enabled: true
+    keyring_service: naukri_auto_upload
+    max_per_run: 20
+
+  instahyre:
+    enabled: true
+    max_per_run: 15
+
+  linkedin:
+    enabled: true
+    max_per_run: 20
+
+  indeed:
+    enabled: true
+    max_per_run: 20
+
+  glassdoor:
+    enabled: true
+    max_per_run: 15
+
+  foundit:
+    enabled: true
+    max_per_run: 15
+
+  timesjobs:
+    enabled: true
+    max_per_run: 15
+
+  shine:
+    enabled: true
+    max_per_run: 15
+
+  iimjobs:
+    enabled: true
+    max_per_run: 10
+
+  wellfound:
+    enabled: true
+    max_per_run: 10
+
+  cutshort:
+    enabled: true
+    max_per_run: 10
+
+  hirist:
+    enabled: true
+    max_per_run: 10
+
+  internshala:
+    enabled: true
+    max_per_run: 10

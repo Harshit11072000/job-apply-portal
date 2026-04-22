@@ -1,0 +1,35 @@
+max_applies_per_run: 20    # per platform per run
+max_applies_per_day: 100   # total cap across all platforms
+
+keywords:
+  - "Senior Backend Engineer"
+  - "Backend Engineer"
+  - "SDE 2"
+  - "Software Engineer Backend"
+  - "Senior SDE"
+
+cities:
+  - Gurgaon
+  - Bangalore
+  - Hyderabad
+  - Pune
+
+experience_min: 3
+experience_max: 7
+
+# Job types to skip (keywords in title/description)
+skip_keywords:
+  - "frontend"
+  - "full stack"
+  - "mobile"
+  - "android"
+  - "ios"
+  - "react"
+  - "angular"
+  - "vue"
+  - "java"          # remove if you want Java roles
+  - "ruby"
+  - "php"
+  - "data scientist"
+  - "machine learning"
+  - "ML engineer"
